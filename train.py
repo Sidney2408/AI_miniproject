@@ -109,7 +109,9 @@ def main(args):
                                         args.question_path,
                                         vocab, answers,
                                         #batch_size=8, shuffle=False # DEBUG
-                                        batch_size=args.batch_size, shuffle=True
+                                        batch_size=args.batch_size,
+                                        shuffle=True,
+                                        num_workers=args.num_workers
                                        )
     
     # Model. Parameters are fixed.
@@ -163,7 +165,7 @@ def main(args):
                 optimizer.step()
                 total_loss += loss.item()
             
-            if i%1000 == 0:
+            if i%args.log_period == 0:
                 current_time = time.time() - epoch_start
                 current_avg_loss = total_loss/i
                 print("Epoch {:2}, Step: {:6}/{:6}, Loss:{:.5f}, time:{:.3f}s".format(
@@ -199,9 +201,15 @@ if __name__ == '__main__':
                         default='questions/v2_OpenEnded_mscoco_train2014_questions.json',
                         help='path for questions json')
     parser.add_argument('--device', type=str, default="auto", choices=("auto","cpu","cuda"), help='device to use')
+    parser.add_argument('--log_period', type=int, default=100,
+                        help='Number of minibatches before progress is updated')
     parser.add_argument('--num_epochs', type=int, default=3, help='Number of epochs to train for')
     parser.add_argument('--batch_size', type=int, default=128, help='Batch size')
     # Note: batch_size 8 seems to consume 1GB of GPU memory(?)
+    parser.add_argument('--num_workers', type=int, default=0, help='Number of workers for dataloader')
+    # Note: seems like on windows, each worker uses about 2GB RAM.
+    # But on ubuntu, they can apparently share memory and consume much less.
+    # 32 seems ok on ubuntu
     
     args = parser.parse_args()
     

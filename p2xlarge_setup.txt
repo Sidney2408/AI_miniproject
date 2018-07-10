@@ -1,0 +1,70 @@
+sudo shutdown -r now
+
+# ALTERNATIVE TO THIS IS TO git clone the AI_miniproject repo, then cd to it.
+# THEN CONTINUE AFTER the cd vqa command.
+mkdir vqa
+cd vqa
+mkdir annotations
+mkdir images
+mkdir questions
+# Either cp or mv are both ok.
+# cp is safer, but slower. Prohibitive for the images.
+cp ../data2/v2_mscoco_train2014_annotations.json annotations
+cp ../data2/v2_mscoco_val2014_annotations.json annotations
+mv ../data2/train2014 images
+mv ../data2/val2014 images
+cp ../data2/v2_OpenEnded_mscoco_train2014_questions.json questions
+cp ../data2/v2_OpenEnded_mscoco_val2014_questions.json questions
+
+# If did not git clone, copy the scripts to vqa folder.
+# Also, copy models folder if it exists
+
+
+
+# conda setup
+# MAKE SURE you're in the correct directory! (vqa or the git repo)
+wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
+# Install miniconda and add to path.
+conda update -n base conda
+# Use 3.6 for compatibility
+conda create -n torch_env python=3.6
+source activate torch_env
+conda install mkl -c anaconda
+conda install pytorch cuda90 -c pytorch
+conda install scikit-image
+pip install torchvision
+# if you see
+# mkl-random 1.0.1 requires cython, which is not installed.
+# mkl-fft 1.0.0 requires cython, which is not installed.
+# You can ignore them. It doesn't require cython.
+conda install nltk
+
+
+
+# Scripts setup
+# MAKE SURE you're in the correct directory! (vqa or the git repo)
+python
+    import nltk
+    nltk.download('punkt')
+python build_vocab.py
+python build_ans.py
+
+
+
+# Train.
+# MAKE SURE you're in the correct directory! (vqa or the git repo)
+# Set very high number of epochs to just train a lot. 
+# Kill process to stop training.
+# It will save every epoch, so you just lose the current epoch's progress.
+nohup python train.py --num_epochs 20 --num_workers 32 >>training.log 2>&1 &
+
+# view training status
+tail -f training.log
+
+# reset
+rm -r models
+rm training.log
+
+# memory and gpu usage
+watch 'free -h;nvidia-smi'
