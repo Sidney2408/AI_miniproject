@@ -55,14 +55,49 @@ def repeat(tensor, times):
     repeated = torch.cat(repeated, dim=0)
     return repeated
 
+def get_latest_state(model_path):
+    # Get .pth files only.
+    # Should contain mixture of model#.pth and optimizer#.pth
+    modelfiles = os.listdir(model_path)
+    modelfiles = (os.path.splitext(f) for f in modelfiles)
+    modelfiles = {name for name,ext in modelfiles if ext==".pth"}
+    
+    largest_epoch = -1
+    for name in modelfiles:
+        if name.startswith("model"):
+            epoch_num = name[5:]
+            # Check that epoch number is valid
+            try:
+                epoch_num = int(epoch_num)
+            except ValueError:
+                continue
+            # Check that optimizer state exists
+            if "optimizer{}".format(epoch_num) not in modelfiles:
+                continue
+            if epoch_num > largest_epoch:
+                largest_epoch = epoch_num
+    
+    # Load and return state_dict of mode, optimizer and scheduler
+    if largest_epoch == -1:
+        return None, None, None, largest_epoch
+    model_file = os.path.join(model_path,"model{}.pth".format(largest_epoch))
+    optimizer_file = os.path.join(model_path,"optimizer{}.pth".format(largest_epoch))
+    model_sd = torch.load(model_file, map_location='cpu')
+    optimizer_sd, scheduler_sd = torch.load(optimizer_file, map_location='cpu')
+    return model_sd, optimizer_sd, scheduler_sd, largest_epoch
+
+
+
 def main(args):
     device = torch.device(args.device)
     # Model will be saved into directory at every epoch
     if not os.path.exists(args.model_path):
         os.makedirs(args.model_path)
-    # Load the latest model.
-    # TODO
+    # Load the latest states if they exist.
+    latest_state = get_latest_state(args.model_path)
+    model_sd, optimizer_sd, scheduler_sd, last_epoch = latest_state
     
+    # mapping wrappers
     with open(args.vocab_path,"rb") as f:
         vocab = pickle.load(f)
     with open(args.ans_path,"rb") as f:
@@ -73,25 +108,35 @@ def main(args):
                                         args.annotation_path,
                                         args.question_path,
                                         vocab, answers,
-                                        batch_size=8, shuffle=False # DEBUG
-                                        #batch_size=args.batch_size, shuffle=True
+                                        #batch_size=8, shuffle=False # DEBUG
+                                        batch_size=args.batch_size, shuffle=True
                                        )
     
     # Model. Parameters are fixed.
     # Note: Expected values: len(vocab) = 8254, len(answers) = 3001
     net = model.VQAnet(len(vocab), embedding_size=128, lstm_size=512,
                        fc_size=1024, num_answers=len(answers))
+    if model_sd is not None:
+        net.load_state_dict(model_sd)
     net.to(device)
+    net.train()
     
     # Don't reduce loss, so can manually weight by answers.
     criterion = nn.CrossEntropyLoss(reduce=False)
     # Note: parameters of optimizer are actually defaults.
     optimizer = torch.optim.Adam(net.trainable_parameters(), lr=0.001, betas=(0.9, 0.999))
+    if optimizer_sd is not None:
+        optimizer.load_state_dict(optimizer_sd)
     # Will likely never reach 12 epochs, but appoximately follows what paper uses
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, 12, 0.5)
+    if scheduler_sd is not None:
+        scheduler.load_state_dict(scheduler_sd)
+    
+    # Free up memory
+    del model_sd, optimizer_sd, scheduler_sd
     
     iterations_per_epoch = len(data_loader)
-    for epoch in range(args.num_epochs):
+    for epoch in range(last_epoch+1, last_epoch+1+args.num_epochs):
         scheduler.step()
         epoch_start = time.time()
         total_loss = 0
@@ -118,26 +163,30 @@ def main(args):
                 optimizer.step()
                 total_loss += loss.item()
             
-            if i%100 == 0:
+            if i%1000 == 0:
                 current_time = time.time() - epoch_start
                 current_avg_loss = total_loss/i
                 print("Epoch {:2}, Step: {:6}/{:6}, Loss:{:.5f}, time:{:.3f}s".format(
                        epoch, i, iterations_per_epoch, current_avg_loss, current_time),
                        flush=True, end="\r"
                      )
+        
         current_time = time.time() - epoch_start
         current_avg_loss = total_loss/i
-        print("Epoch {:2}, Step: {:6}/{:6}, Loss:{:.5f}, time:{:.3f}s, EPOCH COMPLETE".format(
+        print("Epoch {:2}, Step: {:6}/{:6}, Loss:{:.5f}, time:{:.3f}s".format(
                        epoch, i, iterations_per_epoch, current_avg_loss, current_time),
                        flush=True
                      )
         
         # Save model
-        # TODO
+        model_file = os.path.join(args.model_path,"model{}.pth".format(epoch))
+        optimizer_file = os.path.join(args.model_path,"optimizer{}.pth".format(epoch))
+        torch.save(net.state_dict(), model_file)
+        torch.save((optimizer.state_dict(),scheduler.state_dict()), optimizer_file)
 
 
 
-if __name__ == '__main__' or True: # DEBUG
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default='models/' , help='path for saving trained models')
     parser.add_argument('--vocab_path', type=str, default='vocab.pkl', help='path for vocabulary wrapper')
