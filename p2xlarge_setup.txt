@@ -57,7 +57,13 @@ python build_ans.py
 # Set very high number of epochs to just train a lot. 
 # Kill process to stop training.
 # It will save every epoch, so you just lose the current epoch's progress.
+source activate torch_env
 nohup python train.py --num_epochs 20 --num_workers 32 >>training.log 2>&1 &
+
+# Evaluate.
+# MAKE SURE you're in the correct directory! (vqa or the git repo)
+source activate torch_env
+nohup python eval.py--num_workers 32 >>evaluation.log 2>&1 &
 
 # view training status
 tail -f training.log
