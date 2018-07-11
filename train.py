@@ -160,12 +160,13 @@ def main(args):
                 output = repeat(output, ans_repeats)
                 losses = criterion(output, ans_unique)
                 sum_losses = (losses*ans_weights).sum()
-                loss = sum_losses / ans_weights.sum()
+                sum_weights = ans_weights.sum()
+                loss = sum_losses / sum_weights
                 
                 loss.backward()
                 optimizer.step()
                 total_loss += sum_losses.item()
-                total_weight += ans_weights.sum().item()
+                total_weight += sum_weights.item()
             
             if i%args.log_period == 0:
                 current_time = time.time() - epoch_start
