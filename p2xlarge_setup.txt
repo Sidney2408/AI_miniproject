@@ -68,3 +68,6 @@ rm training.log
 
 # memory and gpu usage
 watch 'free -h;nvidia-smi'
+
+# Kill python processes
+pkill python
