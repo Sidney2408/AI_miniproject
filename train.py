@@ -142,7 +142,7 @@ def main(args):
         scheduler.step()
         epoch_start = time.time()
         total_loss = 0
-        
+        total_weight = 0
         for i, (images, qn_idxs, ans_idxs) in enumerate(data_loader,1):
             images = images.to(device)
             if device.type=="cuda":
@@ -159,22 +159,24 @@ def main(args):
                 output = net(images, qn_idxs)
                 output = repeat(output, ans_repeats)
                 losses = criterion(output, ans_unique)
-                loss = (losses*ans_weights).sum() / ans_weights.sum()
+                sum_losses = (losses*ans_weights).sum()
+                loss = sum_losses / ans_weights.sum()
                 
                 loss.backward()
                 optimizer.step()
-                total_loss += loss.item()
+                total_loss += sum_losses.item()
+                total_weight += ans_weights.sum().item()
             
             if i%args.log_period == 0:
                 current_time = time.time() - epoch_start
-                current_avg_loss = total_loss/i
+                current_avg_loss = total_loss/total_weight
                 print("Epoch {:2}, Step: {:6}/{:6}, Loss:{:.5f}, time:{:.3f}s".format(
                        epoch, i, iterations_per_epoch, current_avg_loss, current_time),
                        flush=True, end="\r"
                      )
         
         current_time = time.time() - epoch_start
-        current_avg_loss = total_loss/i
+        current_avg_loss = total_loss/total_weight
         print("Epoch {:2}, Step: {:6}/{:6}, Loss:{:.5f}, time:{:.3f}s".format(
                        epoch, i, iterations_per_epoch, current_avg_loss, current_time),
                        flush=True
