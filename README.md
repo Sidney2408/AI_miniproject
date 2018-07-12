@@ -6,9 +6,8 @@ Implementation of VQA
 ```
 conda install mkl -c anaconda
 conda install pytorch cuda90 -c pytorch
-conda install scikit-image (not sure if should be here. Check pillow?)
+conda install scikit-image
 pip install torchvision
-conda install matplotlib
 conda install nltk
 ```
 

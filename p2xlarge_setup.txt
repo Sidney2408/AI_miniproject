@@ -1,3 +1,4 @@
+# Restart server first, since it needs restart.
 sudo shutdown -r now
 
 # ALTERNATIVE TO THIS IS TO git clone the AI_miniproject repo, then cd to it.
@@ -42,27 +43,31 @@ conda install nltk
 
 
 
+# Activate environment
+source activate torch_env
+
+
+
 # Scripts setup
-# MAKE SURE you're in the correct directory! (vqa or the git repo)
+# MAKE SURE you're in the correct directory (vqa or the git repo) and have environment activated!
 python
     import nltk
     nltk.download('punkt')
+    exit()
 python build_vocab.py
 python build_ans.py
 
 
 
 # Train.
-# MAKE SURE you're in the correct directory! (vqa or the git repo)
+# MAKE SURE you're in the correct directory (vqa or the git repo) and have environment activated!
 # Set very high number of epochs to just train a lot. 
 # Kill process to stop training.
 # It will save every epoch, so you just lose the current epoch's progress.
-source activate torch_env
 nohup python train.py --num_epochs 20 --num_workers 32 >>training.log 2>&1 &
 
 # Evaluate.
-# MAKE SURE you're in the correct directory! (vqa or the git repo)
-source activate torch_env
+# MAKE SURE you're in the correct directory (vqa or the git repo) and have environment activated!
 nohup python eval.py --num_workers 8 >>evaluation.log 2>&1 &
 
 # view training status
